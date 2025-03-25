@@ -28,5 +28,5 @@ app.use("/api/downloads", imageRoutes);
 
 // Iniciar servidor
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://192.168.70.67:${PORT} 🚀`);
+  console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
 });

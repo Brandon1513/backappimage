@@ -25,40 +25,55 @@ exports.register = async (req, res) => {
 // 📌 Login de usuarios
 exports.login = (req, res) => {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: "Email y contraseña son obligatorios." });
-
+    console.log("🔐 Intento de login:", email);
+  
+    if (!email || !password) {
+      console.log("❌ Faltan credenciales");
+      return res.status(400).json({ error: "Email y contraseña son obligatorios." });
+    }
+  
     const query = "SELECT id, name, email, password, role FROM users WHERE email = ?";
     db.query(query, [email], async (err, results) => {
-        if (err) return res.status(500).json({ error: "Error en el servidor" });
-        if (results.length === 0) return res.status(401).json({ error: "Usuario no encontrado." });
-
-        const user = results[0];
-        const isMatch = await bcrypt.compare(password, user.password);
-        if (!isMatch) return res.status(401).json({ error: "Contraseña incorrecta." });
-
-        // 📌 Verificar si el usuario tiene un rol
-        if (!user.role) {
-            return res.status(500).json({ error: "No se encontró el rol del usuario." });
+      if (err) {
+        console.error("❌ Error en la consulta:", err);
+        return res.status(500).json({ error: "Error en el servidor" });
+      }
+  
+      console.log("🧾 Resultados de la DB:", results);
+  
+      if (results.length === 0) {
+        console.log("❌ Usuario no encontrado.");
+        return res.status(401).json({ error: "Usuario no encontrado." });
+      }
+  
+      const user = results[0];
+      const isMatch = await bcrypt.compare(password, user.password);
+      console.log("🔑 Contraseña correcta?", isMatch);
+  
+      if (!isMatch) return res.status(401).json({ error: "Contraseña incorrecta." });
+  
+      if (!user.role) {
+        console.log("❌ Usuario sin rol.");
+        return res.status(500).json({ error: "No se encontró el rol del usuario." });
+      }
+  
+      const token = jwt.sign({ id: user.id, role: user.role }, SECRET_KEY, { expiresIn: "1h" });
+      console.log("✅ Usuario autenticado:", user.name);
+  
+      res.json({
+        message: "Inicio de sesión exitoso",
+        token,
+        role: user.role,
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role
         }
-
-        const token = jwt.sign({ id: user.id, role: user.role }, SECRET_KEY, { expiresIn: "1h" });
-
-        console.log("🔹 Usuario autenticado:", user.name);
-        console.log("🔹 Rol del usuario:", user.role);
-
-        res.json({ 
-            message: "Inicio de sesión exitoso", 
-            token, 
-            role: user.role,
-            user: {
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            }
-        });
+      });
     });
-};
+  };
+  
 
 
 // **Obtener usuario autenticado**
