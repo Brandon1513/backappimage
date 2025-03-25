@@ -2,9 +2,11 @@ const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
 const db = require("../config/database");
-const SERVER_IP = process.env.SERVER_IP || "https://backapp-kappa.vercel.app"; 
+const { sendPushNotification } = require("../utils/notifications"); // ✅ Importar
+const SERVER_IP = process.env.SERVER_IP || "https://backapp-kappa.vercel.app";
 const PORT = process.env.PORT || 4000;
-// Configurar almacenamiento de imágenes
+
+// 📦 Configurar almacenamiento
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, "../uploads");
@@ -19,40 +21,50 @@ const storage = multer.diskStorage({
 });
 
 const upload = multer({ storage });
+exports.upload = upload;
 
-// Subir imagen
-
+// 📷 Subir imagen
 exports.uploadImage = async (req, res) => {
   try {
     if (!req.file || !req.file.path) {
       return res.status(400).json({ error: "No se subió ninguna imagen." });
     }
 
-    const imageUrl = req.file.path; // 📷 URL directa de Cloudinary
+    const imageUrl = req.file.path;
     const originalName = req.file.originalname || "sin_nombre.jpg";
 
-    // Guardar en la base de datos
     db.query(
       "INSERT INTO images (filename, filepath) VALUES (?, ?)",
       [originalName, imageUrl],
-      (err, result) => {
+      async (err, result) => {
         if (err) {
           console.error("❌ Error al guardar en MySQL:", err);
           return res.status(500).json({ error: "Error al guardar en la base de datos." });
         }
 
         console.log("✅ Imagen subida y registrada en BD:", imageUrl);
+
+        // ✅ ENVIAR NOTIFICACIÓN
+        db.query("SELECT token FROM expo_tokens", async (err, rows) => {
+          if (err) {
+            console.error("❌ Error obteniendo tokens:", err);
+            return;
+          }
+
+          const tokens = rows.map(row => row.token);
+          await sendPushNotification(tokens, "Tu nueva imagen de perfil de WhatsApp ya está lista.");
+        });
+
         res.json({ imageUrl, imageId: result.insertId });
       }
     );
   } catch (error) {
-    console.error("❌ Error al subir imagen a Cloudinary:", error);
+    console.error("❌ Error al subir imagen:", error);
     res.status(500).json({ error: "Error interno al subir imagen" });
   }
 };
 
-
-// Obtener última imagen
+// 📦 Última imagen
 exports.getLatestImage = (req, res) => {
   const query = "SELECT id, filepath FROM images ORDER BY uploaded_at DESC LIMIT 1";
 
@@ -66,7 +78,7 @@ exports.getLatestImage = (req, res) => {
       return res.status(404).json({ error: "No hay imágenes disponibles" });
     }
 
-    const baseUrl = "http://192.168.100.12:4000";
+    const baseUrl = "http://192.168.100.12:4000"; // puedes reemplazar si usas Cloudinary
     const filepath = results[0].filepath;
 
     const imageUrl = filepath.startsWith("http")
@@ -79,9 +91,7 @@ exports.getLatestImage = (req, res) => {
   });
 };
 
-
-  // Obtener registro de quien descargo la imagen
-  // Registrar descarga
+// 📦 Registrar descarga
 exports.registerDownload = (req, res) => {
   const { userId, imageId } = req.body;
 
@@ -90,7 +100,6 @@ exports.registerDownload = (req, res) => {
   }
 
   const query = "INSERT INTO downloads (user_id, image_id, downloaded_at) VALUES (?, ?, NOW())";
-
 
   db.query(query, [userId, imageId], (err, result) => {
     if (err) {

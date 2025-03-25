@@ -26,6 +26,11 @@ app.use("/api/images", imageRoutes);
 //Ruta para ver el usuario a descargado la imagen
 app.use("/api/downloads", imageRoutes);
 
+//Notificaciones
+const notificationsRoutes = require("./routes/notificationsRoutes");
+app.use("/api/notifications", notificationsRoutes);
+
+
 // Iniciar servidor
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
