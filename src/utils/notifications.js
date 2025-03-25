@@ -2,7 +2,7 @@
 const { Expo } = require("expo-server-sdk");
 
 // Crear instancia de Expo
-let expo = new Expo();
+const expo = new Expo();
 
 // Función para enviar notificación
 const sendPushNotification = async (pushTokens, message) => {

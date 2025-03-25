@@ -52,6 +52,7 @@ exports.uploadImage = async (req, res) => {
           }
 
           const tokens = rows.map(row => row.token);
+          console.log("🔔 Tokens obtenidos para notificar:", tokens);
           await sendPushNotification(tokens, "Tu nueva imagen de perfil de WhatsApp ya está lista.");
         });
 
