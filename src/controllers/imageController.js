@@ -2,7 +2,7 @@ const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
 const db = require("../config/database");
-const SERVER_IP = process.env.SERVER_IP || "127.0.0.1"; 
+const SERVER_IP = process.env.SERVER_IP || "https://backapp-kappa.vercel.app"; 
 const PORT = process.env.PORT || 4000;
 // Configurar almacenamiento de imágenes
 const storage = multer.diskStorage({
@@ -21,24 +21,31 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Subir imagen
-exports.uploadImage = (req, res) => {
-  if (!req.file) {
-    return res.status(400).json({ error: "No se subió ninguna imagen." });
-  }
-
-  const filename = req.file.filename;
-  const filepath = `/uploads/${filename}`;
-  const fullUrl = `http://${SERVER_IP}:${PORT}${filepath}`;
-  console.log("Imagen guardada en:", fullUrl); // Debug para verificar la IP generada
-
-  db.query("INSERT INTO images (filename, filepath) VALUES (?, ?)", [filename, fullUrl], (err, result) => {
-    if (err) {
-      console.error("Error al guardar en MySQL:", err);
-      return res.status(500).json({ error: "Error al guardar en MySQL" });
+exports.uploadImage = async (req, res) => {
+  try {
+    if (!req.file || !req.file.path) {
+      return res.status(400).json({ error: "No se subió ninguna imagen." });
     }
 
-    res.json({ imageUrl: fullUrl, imageId: result.insertId });
-  });
+    const imageUrl = req.file.path; // Cloudinary ya te da el path completo
+
+    // Guardar en la base de datos (puedes almacenar más información si lo deseas)
+    db.query(
+      "INSERT INTO images (filename, filepath) VALUES (?, ?)",
+      [req.file.originalname, imageUrl],
+      (err, result) => {
+        if (err) {
+          console.error("Error al guardar en MySQL:", err);
+          return res.status(500).json({ error: "Error al guardar en MySQL" });
+        }
+
+        res.json({ imageUrl, imageId: result.insertId });
+      }
+    );
+  } catch (error) {
+    console.error("❌ Error al subir imagen a Cloudinary:", error);
+    res.status(500).json({ error: "Error al subir imagen" });
+  }
 };
 
 // Obtener última imagen

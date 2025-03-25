@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const imageController = require("../controllers/imageController");
 const multer = require("multer");
+const upload = require("../middlewares/cloudinaryUpload");
 
 // Configurar Multer
 const storage = multer.diskStorage({
@@ -16,7 +17,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Ruta para subir imágenes
-router.post("/upload", upload.single("image"), imageController.uploadImage);
+router.post("/upload", upload.single("image"), uploadImage);
 
 // Ruta para obtener la última imagen
 router.get("/latest-image", imageController.getLatestImage);
