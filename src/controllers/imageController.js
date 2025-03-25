@@ -24,6 +24,7 @@ const upload = multer({ storage });
 exports.upload = upload;
 
 // 📷 Subir imagen
+// 📷 Subir imagen
 exports.uploadImage = async (req, res) => {
   try {
     if (!req.file || !req.file.path) {
@@ -44,15 +45,21 @@ exports.uploadImage = async (req, res) => {
 
         console.log("✅ Imagen subida y registrada en BD:", imageUrl);
 
-        // ✅ ENVIAR NOTIFICACIÓN
+        // 🔔 OBTENER TOKENS EXPO Y ENVIAR NOTIFICACIONES
         db.query("SELECT token FROM expo_tokens", async (err, rows) => {
           if (err) {
             console.error("❌ Error obteniendo tokens:", err);
             return;
           }
 
-          const tokens = rows.map(row => row.token);
-          console.log("🔔 Tokens obtenidos para notificar:", tokens);
+          const tokens = rows.map(row => row.token).filter(Boolean); // evita tokens nulos
+          if (tokens.length === 0) {
+            console.warn("⚠️ No hay tokens registrados para notificar.");
+            return;
+          }
+
+          console.log("🔔 Enviando notificaciones a:", tokens.length, "usuarios");
+
           await sendPushNotification(tokens, "Tu nueva imagen de perfil de WhatsApp ya está lista.");
         });
 
