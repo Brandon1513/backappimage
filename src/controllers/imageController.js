@@ -21,32 +21,36 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // Subir imagen
+
 exports.uploadImage = async (req, res) => {
   try {
     if (!req.file || !req.file.path) {
       return res.status(400).json({ error: "No se subió ninguna imagen." });
     }
 
-    const imageUrl = req.file.path; // Cloudinary ya te da el path completo
+    const imageUrl = req.file.path; // 📷 URL directa de Cloudinary
+    const originalName = req.file.originalname || "sin_nombre.jpg";
 
-    // Guardar en la base de datos (puedes almacenar más información si lo deseas)
+    // Guardar en la base de datos
     db.query(
       "INSERT INTO images (filename, filepath) VALUES (?, ?)",
-      [req.file.originalname, imageUrl],
+      [originalName, imageUrl],
       (err, result) => {
         if (err) {
-          console.error("Error al guardar en MySQL:", err);
-          return res.status(500).json({ error: "Error al guardar en MySQL" });
+          console.error("❌ Error al guardar en MySQL:", err);
+          return res.status(500).json({ error: "Error al guardar en la base de datos." });
         }
 
+        console.log("✅ Imagen subida y registrada en BD:", imageUrl);
         res.json({ imageUrl, imageId: result.insertId });
       }
     );
   } catch (error) {
     console.error("❌ Error al subir imagen a Cloudinary:", error);
-    res.status(500).json({ error: "Error al subir imagen" });
+    res.status(500).json({ error: "Error interno al subir imagen" });
   }
 };
+
 
 // Obtener última imagen
 exports.getLatestImage = (req, res) => {
