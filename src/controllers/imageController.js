@@ -2,9 +2,10 @@ const path = require("path");
 const multer = require("multer");
 const fs = require("fs");
 const db = require("../config/database");
-const { sendPushNotification } = require("../utils/notifications"); // ✅ Importar
-const SERVER_IP = process.env.SERVER_IP || "https://backapp-kappa.vercel.app";
-const PORT = process.env.PORT || 4000;
+const { sendPushNotification } = require("../utils/notifications");
+
+// Configuración para URLs de imágenes
+const SERVER_URL = process.env.SERVER_URL || "https://backapp-kappa.vercel.app";
 
 // 📦 Configurar almacenamiento
 const storage = multer.diskStorage({
@@ -16,14 +17,28 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    cb(null, `${Date.now()}-${file.originalname}`);
+    // Crear nombre único para evitar colisiones
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+    const extension = path.extname(file.originalname);
+    cb(null, `image-${uniqueSuffix}${extension}`);
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({ 
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB máximo
+  fileFilter: (req, file, cb) => {
+    // Validar tipos de archivo permitidos
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/webp'];
+    if (!allowedTypes.includes(file.mimetype)) {
+      return cb(new Error('Tipo de archivo no permitido. Solo se aceptan JPG, PNG y WebP.'));
+    }
+    cb(null, true);
+  }
+});
+
 exports.upload = upload;
 
-// 📷 Subir imagen
 // 📷 Subir imagen
 exports.uploadImage = async (req, res) => {
   try {
@@ -31,11 +46,17 @@ exports.uploadImage = async (req, res) => {
       return res.status(400).json({ error: "No se subió ninguna imagen." });
     }
 
-    const imageUrl = req.file.path;
+    const filePath = req.file.path;
     const originalName = req.file.originalname || "sin_nombre.jpg";
+    
+    // Prepara la ruta relativa para almacenar en la base de datos
+    const relativePath = filePath.replace(path.join(__dirname, '..'), '');
+
+    // Construir URL para acceso web
+    const imageUrl = `${SERVER_URL}${relativePath.replace(/\\/g, '/')}`;
 
     db.query(
-      "INSERT INTO images (filename, filepath) VALUES (?, ?)",
+      "INSERT INTO images (filename, filepath, uploaded_at) VALUES (?, ?, NOW())",
       [originalName, imageUrl],
       async (err, result) => {
         if (err) {
@@ -44,26 +65,43 @@ exports.uploadImage = async (req, res) => {
         }
 
         console.log("✅ Imagen subida y registrada en BD:", imageUrl);
+        const imageId = result.insertId;
 
         // 🔔 OBTENER TOKENS EXPO Y ENVIAR NOTIFICACIONES
         db.query("SELECT token FROM expo_tokens", async (err, rows) => {
           if (err) {
             console.error("❌ Error obteniendo tokens:", err);
-            return;
+            // Continuamos con la respuesta aunque haya error en notificaciones
+          } else {
+            const tokens = rows.map(row => row.token).filter(Boolean);
+            
+            if (tokens.length > 0) {
+              console.log("🔔 Enviando notificaciones a:", tokens.length, "usuarios");
+              
+              try {
+                await sendPushNotification(
+                  tokens, 
+                  "Nueva imagen disponible", 
+                  "Tu nueva imagen de perfil de WhatsApp ya está lista.",
+                  { imageId, type: 'new_image' }
+                );
+              } catch (notifError) {
+                console.error("❌ Error al enviar notificaciones:", notifError);
+                // Continuamos con la respuesta aunque haya error en notificaciones
+              }
+            } else {
+              console.warn("⚠️ No hay tokens registrados para notificar.");
+            }
           }
 
-          const tokens = rows.map(row => row.token).filter(Boolean); // evita tokens nulos
-          if (tokens.length === 0) {
-            console.warn("⚠️ No hay tokens registrados para notificar.");
-            return;
-          }
-
-          console.log("🔔 Enviando notificaciones a:", tokens.length, "usuarios");
-
-          await sendPushNotification(tokens, "Tu nueva imagen de perfil de WhatsApp ya está lista.");
+          // Respondemos con éxito independientemente del estado de las notificaciones
+          res.json({ 
+            success: true,
+            message: "Imagen subida correctamente",
+            imageUrl, 
+            imageId 
+          });
         });
-
-        res.json({ imageUrl, imageId: result.insertId });
       }
     );
   } catch (error) {
@@ -72,13 +110,13 @@ exports.uploadImage = async (req, res) => {
   }
 };
 
-// 📦 Última imagen
+// 📦 Obtener última imagen
 exports.getLatestImage = (req, res) => {
   const query = "SELECT id, filepath FROM images ORDER BY uploaded_at DESC LIMIT 1";
 
   db.query(query, (err, results) => {
     if (err) {
-      console.error("Error al obtener la última imagen:", err);
+      console.error("❌ Error al obtener la última imagen:", err);
       return res.status(500).json({ error: "Error en el servidor" });
     }
 
@@ -86,13 +124,7 @@ exports.getLatestImage = (req, res) => {
       return res.status(404).json({ error: "No hay imágenes disponibles" });
     }
 
-    const baseUrl = "http://192.168.100.12:4000"; // puedes reemplazar si usas Cloudinary
-    const filepath = results[0].filepath;
-
-    const imageUrl = filepath.startsWith("http")
-      ? filepath
-      : `${baseUrl}/${filepath}`;
-
+    const imageUrl = results[0].filepath;
     const imageId = results[0].id;
 
     res.json({ imageUrl, imageId });
@@ -111,7 +143,7 @@ exports.registerDownload = (req, res) => {
 
   db.query(query, [userId, imageId], (err, result) => {
     if (err) {
-      console.error("Error al registrar la descarga:", err.sqlMessage || err.message || err);
+      console.error("❌ Error al registrar la descarga:", err.sqlMessage || err.message || err);
       return res.status(500).json({ error: "Error en el servidor" });
     }
 
