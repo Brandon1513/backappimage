@@ -53,7 +53,8 @@ exports.uploadImage = async (req, res) => {
     const relativePath = filePath.replace(path.join(__dirname, '..'), '');
 
     // Construir URL para acceso web
-    const imageUrl = `${SERVER_URL}${relativePath.replace(/\\/g, '/')}`;
+    const result = await cloudinary.uploader.upload(filePath); // Usa tu lógica existente
+    const imageUrl = result.secure_url;
 
     db.query(
       "INSERT INTO images (filename, filepath, uploaded_at) VALUES (?, ?, NOW())",
