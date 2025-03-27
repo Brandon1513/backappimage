@@ -46,16 +46,14 @@ exports.uploadImage = async (req, res) => {
       return res.status(400).json({ error: "No se subió ninguna imagen." });
     }
 
+    const filePath = req.file.path;
     const originalName = req.file.originalname || "sin_nombre.jpg";
+    
+    // Prepara la ruta relativa para almacenar en la base de datos
+    const relativePath = filePath.replace(path.join(__dirname, '..'), '');
 
-    // Sube el archivo local a Cloudinary
-    const cloudinaryResponse = await cloudinary.uploader.upload(req.file.path, {
-      folder: "uploads",
-    });
-
-    // Obtén la URL de Cloudinary
-    const imageUrl = cloudinaryResponse.secure_url;
-
+    // Construir URL para acceso web
+    const imageUrl = `${relativePath.replace(/\\/g, '/')}`;
 
     db.query(
       "INSERT INTO images (filename, filepath, uploaded_at) VALUES (?, ?, NOW())",
