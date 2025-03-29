@@ -1,11 +1,16 @@
 const admin = require("firebase-admin");
-const path = require("path");
 const db = require("../config/database");
 
-// Cargar credenciales del servicio (usa la ruta correcta donde guardaste el archivo JSON)
-const serviceAccount = require(path.join(__dirname, "../config/firebase-service-account.json"));
+// ✅ Cargar credenciales desde variable de entorno segura
+let serviceAccount;
+try {
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+} catch (error) {
+  console.error("❌ Error al parsear FIREBASE_SERVICE_ACCOUNT:", error);
+  throw error;
+}
 
-// Inicializar Firebase Admin solo una vez
+// ✅ Inicializar Firebase Admin solo una vez
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
