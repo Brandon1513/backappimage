@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/database");
+const { sendPushNotification } = require("../utils/notifications");
 
 // Registrar o actualizar token de notificaciones
 router.post("/register-token", (req, res) => {
@@ -42,6 +43,24 @@ router.get("/tokens", (req, res) => {
     const tokens = results.map(row => row.token).filter(Boolean);
     res.json({ tokens });
   });
+});
+
+// Ruta de prueba para enviar notificación FCM desde Postman
+router.post("/test-send", async (req, res) => {
+  const { tokens, title, body, data } = req.body;
+
+  if (!tokens || !Array.isArray(tokens) || tokens.length === 0) {
+    return res.status(400).json({ error: "Debes proporcionar al menos un token válido." });
+  }
+
+  try {
+    const response = await sendPushNotification(tokens, title, body, data || {});
+    console.log("✅ Resultado del envío:", response);
+    res.json({ message: "Notificación enviada correctamente", response });
+  } catch (error) {
+    console.error("❌ Error al enviar notificación de prueba:", error);
+    res.status(500).json({ error: "Fallo al enviar notificación" });
+  }
 });
 
 module.exports = router;
