@@ -52,23 +52,28 @@ exports.sendPushNotification = async (tokens, title, body, data = {}) => {
     return;
   }
 
-  const message = {
+  const messages = tokens.map(token => ({
+    token,
     notification: {
       title,
       body,
     },
     data,
-    tokens,
-  };
+  }));
 
   try {
-    const response = await admin.messaging().sendMulticast(message);
-    console.log("📨 Notificaciones enviadas:", response.successCount);
-    return response;
+    const responses = await Promise.all(
+      messages.map(msg => admin.messaging().send(msg))
+    );
+
+    console.log("📨 Notificaciones enviadas correctamente:", responses.length);
+    return responses;
   } catch (error) {
     console.error("❌ Error al enviar notificaciones FCM:", error);
+    return { error };
   }
 };
+
 
 /**
  * Notificar a todos los usuarios de la tabla expo_tokens
