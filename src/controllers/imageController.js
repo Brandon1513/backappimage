@@ -80,10 +80,10 @@ exports.uploadImage = async (req, res) => {
               
               try {
                 await sendPushNotification(
-                  tokens, 
-                  "Nueva imagen disponible", 
+                  tokens,
+                  "Nueva imagen disponible",
                   "Tu nueva imagen de perfil de WhatsApp ya está lista.",
-                  { imageId, type: 'new_image' }
+                  { imageId: imageId.toString(), type: "new_image" }
                 );
               } catch (notifError) {
                 console.error("❌ Error al enviar notificaciones:", notifError);
